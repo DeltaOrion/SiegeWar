@@ -9,12 +9,19 @@ import com.palmergames.bukkit.towny.object.Government;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
+import com.palmergames.bukkit.towny.permissions.TownyPerms;
 import org.bukkit.entity.Player;
+
+import java.util.Map;
 
 public class SiegeWarAllegianceUtil {
 
     public static SiegeSide calculateCandidateSiegePlayerSide(Player deadPlayer, Town deadResidentTown, Siege candidateSiege) {
 
+        Resident resident = TownyUniverse.getInstance().getResident(deadPlayer.getName());
+        Map<String,Boolean> permissions = TownyPerms.getResidentPerms(resident);
+        boolean townGuard = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_TOWN_SIEGE_BATTLE_POINTS.getNode(),false);
+        boolean alliedSoldier = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_NATION_SIEGE_BATTLE_POINTS.getNode(),false);
         //Look for defender
         Government defendingGovernment = candidateSiege.getDefender();
         switch (candidateSiege.getSiegeType()) {
@@ -22,11 +29,11 @@ public class SiegeWarAllegianceUtil {
             case SUPPRESSION:
             case LIBERATION:
                 //In the above sieges, defenders can be town guards
-                if (isTownGuard(deadPlayer, deadResidentTown, defendingGovernment))
+                if (isTownGuard(deadPlayer, deadResidentTown, defendingGovernment,townGuard))
                     return SiegeSide.DEFENDERS;
             case REVOLT:
                 //In the above sieges, defenders can be nation/allied soldiers
-                if (isNationSoldierOrAlliedSoldier(deadPlayer, deadResidentTown, defendingGovernment))
+                if (isNationSoldierOrAlliedSoldier(deadPlayer, deadResidentTown, defendingGovernment,alliedSoldier))
                     return SiegeSide.DEFENDERS;
         }
 
@@ -35,29 +42,30 @@ public class SiegeWarAllegianceUtil {
         switch (candidateSiege.getSiegeType()) {
             case REVOLT:
                 //In the above sieges, attackers can be town guards
-                if (isTownGuard(deadPlayer, deadResidentTown, attackingGovernment))
+                if (isTownGuard(deadPlayer, deadResidentTown, attackingGovernment,townGuard))
                     return SiegeSide.ATTACKERS;
             case CONQUEST:
             case SUPPRESSION:
             case LIBERATION:
                 //In the above sieges, attackers can be nation/allied soldiers
-                if (isNationSoldierOrAlliedSoldier(deadPlayer, deadResidentTown, attackingGovernment))
+                if (isNationSoldierOrAlliedSoldier(deadPlayer, deadResidentTown, attackingGovernment,alliedSoldier))
                     return SiegeSide.ATTACKERS;
         }
         return SiegeSide.NOBODY;
     }
 
-    private static boolean isTownGuard(Player player, Town residentTown, Government governmentToCheck) {
+    private static boolean isTownGuard(Player player, Town residentTown, Government governmentToCheck, boolean townPerms) {
         return residentTown == governmentToCheck
-                && TownyUniverse.getInstance().getPermissionSource().testPermission(player, SiegeWarPermissionNodes.SIEGEWAR_TOWN_SIEGE_BATTLE_POINTS.getNode());
+                && townPerms;
     }
 
-    private static boolean isNationSoldierOrAlliedSoldier(Player player, Town residentTown, Government governmentToCheck) {
+    private static boolean isNationSoldierOrAlliedSoldier(Player player, Town residentTown, Government governmentToCheck, boolean nationPerms) {
         if(!residentTown.hasNation())
             return false;
+
         Nation nation = TownyAPI.getInstance().getTownNationOrNull(residentTown);
 
-        if(!TownyUniverse.getInstance().getPermissionSource().testPermission(player, SiegeWarPermissionNodes.SIEGEWAR_NATION_SIEGE_BATTLE_POINTS.getNode()))
+        if(!nationPerms)
             return false;
 
         if(governmentToCheck instanceof Nation) {
