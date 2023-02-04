@@ -7,6 +7,8 @@ import com.gmail.goosius.siegewar.enums.SiegeSide;
 import com.gmail.goosius.siegewar.hud.SiegeHUDManager;
 import com.gmail.goosius.siegewar.integration.cannons.CannonsIntegration;
 import com.gmail.goosius.siegewar.objects.Siege;
+import com.gmail.goosius.siegewar.playeractions.PointsReason;
+import com.gmail.goosius.siegewar.playeractions.SiegePoints;
 import com.gmail.goosius.siegewar.settings.SiegeWarSettings;
 import com.gmail.goosius.siegewar.tasks.SiegeWarTimerTaskController;
 import com.gmail.goosius.siegewar.utils.SiegeWarAllegianceUtil;
@@ -27,10 +29,11 @@ import com.palmergames.bukkit.towny.event.TranslationLoadEvent;
 import com.palmergames.bukkit.towny.event.actions.TownyExplodingBlocksEvent;
 import com.palmergames.bukkit.towny.event.damage.TownyExplosionDamagesEntityEvent;
 import com.palmergames.bukkit.towny.event.damage.TownyFriendlyFireTestEvent;
-import com.palmergames.bukkit.towny.event.nation.NationRankRemoveEvent;
+import com.palmergames.bukkit.towny.event.nation.*;
 import com.palmergames.bukkit.towny.event.teleport.OutlawTeleportEvent;
 import com.palmergames.bukkit.towny.event.time.NewHourEvent;
 import com.palmergames.bukkit.towny.event.time.NewShortTimeEvent;
+import com.palmergames.bukkit.towny.event.town.TownMayorChangeEvent;
 import com.palmergames.bukkit.towny.exceptions.TownyException;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Resident;
@@ -51,12 +54,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 
@@ -279,7 +277,7 @@ public class SiegeWarTownyEventListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void on(TownRemoveResidentRankEvent event) {
-        tryBroadCastRankRemoval(event.getRank(), event.getResident());
+        handleRankRemoval(event.getRank(), event.getResident());
     }
 
     /**
@@ -289,7 +287,7 @@ public class SiegeWarTownyEventListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void on(NationRankRemoveEvent event) {
-        tryBroadCastRankRemoval(event.getRank(), event.getResident());
+        handleRankRemoval(event.getRank(), event.getResident());
     }
 
     /**
@@ -299,7 +297,7 @@ public class SiegeWarTownyEventListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void on(TownRemoveResidentEvent event) {
-        tryBroadCastTownRemoval(event.getResident(), event.getTown());
+        handleTownRemoval(event.getResident(), event.getTown());
     }
 
     /**
@@ -307,9 +305,51 @@ public class SiegeWarTownyEventListener implements Listener {
      * 
      * @param event NationRemoveTownEvent.
      */
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void on(NationRemoveTownEvent event) {
-        tryBroadCastNationRemoval(event.getTown(), event.getNation());
+    public void on(NationTownLeaveEvent event) {
+        handleTownLeave(event.getTown(),event.getNation());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void on(NationKingChangeEvent event) {
+        if(event.getNewKing().equals(event.getOldKing()))
+            return;
+
+        if(Objects.equals(event.getNewKing().getTownOrNull(), event.getOldKing().getTownOrNull())) {
+            if(!event.getNewKing().isMayor())
+                return;
+
+        }
+
+        SiegePoints.evaluatePointsEvent(event.getOldKing().getPlayer(), PointsReason.SOLDIER_REMOVAL);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void on(TownMayorChangeEvent event) {
+        if(event.getOldMayor().equals(event.getNewMayor()))
+            return;
+
+        if(event.getTown().isCapital()) {
+            SiegePoints.evaluatePointsEvent(event.getOldMayor().getPlayer(), PointsReason.SOLDIER_REMOVAL);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void on(NationPreTownKickEvent event) {
+        handleTownLeave(event.getTown(),event.getNation());
+    }
+
+    private void handleTownLeave(Town town, Nation nation) {
+        if(SiegeWarSettings.removePointsOnSoldierRemoval()) {
+            for(Resident resident : town.getResidents()) {
+                if(resident.isOnline()) {
+                    SiegePoints.evaluatePointsEvent(resident.getPlayer(),PointsReason.TOWN_LEAVE_NATION);
+                }
+            }
+        } else {
+            tryBroadCastNationRemoval(town, nation);
+        }
     }
 
     /**
@@ -400,13 +440,19 @@ public class SiegeWarTownyEventListener implements Listener {
      * @param resident Resident losing their town.
      * @param town     Town the resident was a part of.
      */
-    private void tryBroadCastTownRemoval(Resident resident, Town town) {
-        Siege siege = siegeAtPlayerLocation(resident);
-        if (siege != null)
-            SiegeWarNotificationUtil.informSiegeParticipants(siege,
-                    // Message: 'Warning: %s was removed from town %s while in the siegezone at %s.'
-                    Translatable.of("warn_resident_had_town_removed",
-                    resident.getName(), town.getName(), getDateAndTime())); 
+    private void handleTownRemoval(Resident resident, Town town) {
+        if(SiegeWarSettings.removePointsOnSoldierRemoval()) {
+            if(resident.isOnline()) {
+                SiegePoints.evaluatePointsEvent(resident.getPlayer(), PointsReason.LEAVE_TOWN);
+            }
+        } else {
+            Siege siege = siegeAtPlayerLocation(resident);
+            if (siege != null)
+                SiegeWarNotificationUtil.informSiegeParticipants(siege,
+                        // Message: 'Warning: %s was removed from town %s while in the siegezone at %s.'
+                        Translatable.of("warn_resident_had_town_removed",
+                                resident.getName(), town.getName(), getDateAndTime()));
+        }
     }
 
 	private String getDateAndTime() {
@@ -420,13 +466,19 @@ public class SiegeWarTownyEventListener implements Listener {
      * @param rank     Rank being taken from the resident.
      * @param resident Resident losing their rank.
      */
-    private void tryBroadCastRankRemoval(String rank, Resident resident) {
-        if (rank.contains("siegewar")) {
-            Siege siege = siegeAtPlayerLocation(resident);
-            if (siege != null)
-                SiegeWarNotificationUtil.informSiegeParticipants(siege,
-                        // Message: 'Warning: %s had their rank %s taken from them while in the siegezone at %s.'
-                        Translatable.of("warn_resident_had_rank_removed", resident.getName(), rank, getDateAndTime()));
+    private void handleRankRemoval(String rank, Resident resident) {
+        if(SiegeWarSettings.removePointsOnSoldierRemoval()) {
+            if(resident.isOnline()) {
+                SiegePoints.evaluateRankRemoval(resident.getPlayer(),rank);
+            }
+        } else {
+            if (rank.contains("siegewar")) {
+                Siege siege = siegeAtPlayerLocation(resident);
+                if (siege != null)
+                    SiegeWarNotificationUtil.informSiegeParticipants(siege,
+                            // Message: 'Warning: %s had their rank %s taken from them while in the siegezone at %s.'
+                            Translatable.of("warn_resident_had_rank_removed", resident.getName(), rank, getDateAndTime()));
+            }
         }
     }
 

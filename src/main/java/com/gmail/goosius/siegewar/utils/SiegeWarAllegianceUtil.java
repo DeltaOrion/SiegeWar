@@ -20,8 +20,13 @@ public class SiegeWarAllegianceUtil {
 
         Resident resident = TownyUniverse.getInstance().getResident(deadPlayer.getName());
         Map<String,Boolean> permissions = TownyPerms.getResidentPerms(resident);
-        boolean townGuard = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_TOWN_SIEGE_BATTLE_POINTS.getNode(),false);
-        boolean alliedSoldier = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_NATION_SIEGE_BATTLE_POINTS.getNode(),false);
+        boolean townNode = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_TOWN_SIEGE_BATTLE_POINTS.getNode(),false);
+        boolean nationNode = permissions.getOrDefault(SiegeWarPermissionNodes.SIEGEWAR_NATION_SIEGE_BATTLE_POINTS.getNode(),false);
+        boolean nationNode2 = permissions.getOrDefault("siegewar.nation.siege.*",false);
+        boolean townNode2 = permissions.getOrDefault("siegewar.town.siege.*",false);
+
+        boolean townGuard = townNode || townNode2;
+        boolean alliedSoldier = nationNode || nationNode2;
         //Look for defender
         Government defendingGovernment = candidateSiege.getDefender();
         switch (candidateSiege.getSiegeType()) {

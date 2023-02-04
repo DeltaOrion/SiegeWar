@@ -17,7 +17,6 @@ import com.gmail.goosius.siegewar.utils.SiegeWarAllegianceUtil;
 import com.palmergames.bukkit.towny.TownyUniverse;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.Town;
-import com.palmergames.bukkit.towny.object.TownyPermission;
 import com.palmergames.bukkit.towny.object.Translatable;
 import com.palmergames.bukkit.towny.permissions.TownyPerms;
 import org.bukkit.Color;
@@ -27,11 +26,9 @@ import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.permissions.Permission;
-import org.bukkit.permissions.PermissionAttachment;
 
-import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,10 +39,32 @@ import java.util.Map;
  *
  * @author Goosius
  */
-public class PlayerDeath {
+public class SiegePoints {
 
 	private static final String NATION_POINTS_NODE = SiegeWarPermissionNodes.SIEGEWAR_NATION_SIEGE_BATTLE_POINTS.getNode();
 	private static final String TOWN_POINTS_NODE = SiegeWarPermissionNodes.SIEGEWAR_TOWN_SIEGE_BATTLE_POINTS.getNode();
+
+
+	public static void evaluateRankRemoval(Player player, String rank) {
+		try {
+
+			Resident deadResident = TownyUniverse.getInstance().getResident(player.getUniqueId());
+			// Weed out invalid residents, residents without a town, and players who cannot collect Points in a Siege
+			System.out.println(rank);
+			if (deadResident == null || !isRemovedNodeSoldier(rank))
+				return;
+
+			evaluatePoints(player,deadResident, PointsReason.SOLDIER_REMOVAL);
+
+		} catch (Exception e) {
+			try {
+				SiegeWar.severe("Error evaluating siege death for player " + player.getName());
+			} catch (Exception e2) {
+				SiegeWar.severe("Error evaluating siege death (could not read player name)");
+			}
+			e.printStackTrace();
+		}
+	}
 
 	/**
 	 * Evaluates a siege death event.
@@ -62,39 +81,23 @@ public class PlayerDeath {
 	 * - Players from secretly-allied nations can contribute to battle points
 	 * - Devices (cannons, traps, bombs etc.) can be used to gain battle points
 	 *
-	 * @param deadPlayer The player who died
-	 * @param playerDeathEvent The player death event
+	 * @param player The player who died
 	 */
-	public static void evaluateSiegePlayerDeath(Player deadPlayer, PlayerDeathEvent playerDeathEvent) {
-		try {
-			Resident deadResident = TownyUniverse.getInstance().getResident(deadPlayer.getUniqueId());
-			// Weed out invalid residents, residents without a town, and players who cannot collect Points in a Siege.
-			if(deadResident==null)
-				return;
+	public static void evaluateDeath(Player player) {
+		evaluatePointsEvent(player,PointsReason.DEATH);
+	}
 
+	public static void evaluatePointsEvent(Player player, PointsReason reason) {
+		try {
+
+			Resident deadResident = TownyUniverse.getInstance().getResident(player.getUniqueId());
 			if (deadResident == null || !deadResident.hasTown() || playerIsMissingSiegePointsNodes(deadResident))
 				return;
 
-
-			Town deadResidentTown = deadResident.getTownOrNull();
-			Siege siege = findAValidSiege(deadPlayer, deadResidentTown);
-
-			// If player is confirmed as close to one or more sieges in which they are
-			// eligible to be involved, apply siege point penalty for the nearest one, and
-			// keep inventory
-			if (siege != null) {
-				//Award penalty points w/ notification if siege is in progress
-				if(siege.getStatus() == SiegeStatus.IN_PROGRESS) {
-					spawnFireWork(deadPlayer, siege);
-					tryAwardingPoints(deadPlayer, deadResidentTown, siege);
-				}
-				// This might be outside of the IN_PROGRESS if statement because players could
-				// be in a BCS and the SiegeStatus changes.
-				tryRemovingPlayerFromBannerControlSession(deadPlayer, siege);
-			}
+			evaluatePoints(player,deadResident,reason);
 		} catch (Exception e) {
 			try {
-				SiegeWar.severe("Error evaluating siege death for player " + deadPlayer.getName());
+				SiegeWar.severe("Error evaluating siege death for player " + player.getName());
 			} catch (Exception e2) {
 				SiegeWar.severe("Error evaluating siege death (could not read player name)");
 			}
@@ -102,12 +105,43 @@ public class PlayerDeath {
 		}
 	}
 
+	private static void evaluatePoints(Player player, Resident deadResident, PointsReason reason) {
+		Town deadResidentTown = deadResident.getTownOrNull();
+		Siege siege = findAValidSiege(player, deadResidentTown);
+
+		// If player is confirmed as close to one or more sieges in which they are
+		// eligible to be involved, apply siege point penalty for the nearest one, and
+		// keep inventory
+		if (siege != null) {
+			//Award penalty points w/ notification if siege is in progress
+			if(siege.getStatus() == SiegeStatus.IN_PROGRESS) {
+				spawnFireWork(player, siege);
+				tryAwardingPoints(player, deadResidentTown, siege, reason);
+			}
+			// This might be outside of the IN_PROGRESS if statement because players could
+			// be in a BCS and the SiegeStatus changes.
+			tryRemovingPlayerFromBannerControlSession(player, siege);
+		}
+	}
+
 	private static boolean playerIsMissingSiegePointsNodes(Resident resident) {
 		Map<String,Boolean> perms = TownyPerms.getResidentPerms(resident);
 		boolean townNode = perms.getOrDefault(TOWN_POINTS_NODE,false);
 		boolean nationNode = perms.getOrDefault(NATION_POINTS_NODE,false);
+		boolean nationNode2 = perms.getOrDefault("siegewar.nation.siege.*",false);
+		boolean townNode2 = perms.getOrDefault("siegewar.town.siege.*",false);
 
-		return !townNode && !nationNode;
+		return !townNode && !nationNode && !nationNode2 && !townNode2;
+	}
+
+	private static boolean isRemovedNodeSoldier(String rank) {
+		List<String> permissions = new ArrayList<>(TownyPerms.getNationRankPermissions(rank));
+		permissions.addAll(TownyPerms.getTownRankPermissions(rank));
+		for(String perm : permissions) {
+			if(perm.equals(TOWN_POINTS_NODE) || perm.equals(NATION_POINTS_NODE))
+				return true;
+		}
+		return false;
 	}
 
 	private static Siege findAValidSiege(Player deadPlayer, Town deadResidentTown) {
@@ -159,13 +193,13 @@ public class PlayerDeath {
 		block.setType(Material.BLACK_BANNER);
 	}
 
-	private static void tryAwardingPoints(Player deadPlayer, Town deadResidentTown, Siege siege) {
+	private static void tryAwardingPoints(Player deadPlayer, Town deadResidentTown, Siege siege, PointsReason reason) {
 		//No penalty points without an active battle session
 		if (BattleSession.getBattleSession().isActive()) {
 			SiegeWarScoringUtil.awardPenaltyPoints(
 					SiegeWarAllegianceUtil.calculateCandidateSiegePlayerSide(deadPlayer, deadResidentTown, siege) == SiegeSide.ATTACKERS,
 					deadPlayer,
-					siege);
+					siege,reason);
 		}
 	}
 

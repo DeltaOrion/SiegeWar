@@ -3,6 +3,7 @@ package com.gmail.goosius.siegewar.utils;
 import com.gmail.goosius.siegewar.SiegeController;
 import com.gmail.goosius.siegewar.enums.SiegeSide;
 import com.gmail.goosius.siegewar.objects.Siege;
+import com.gmail.goosius.siegewar.playeractions.PointsReason;
 import com.gmail.goosius.siegewar.settings.SiegeWarSettings;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.object.Translatable;
@@ -45,7 +46,8 @@ public class SiegeWarScoringUtil {
 	 */
 	public static void awardPenaltyPoints(boolean residentIsAttacker,
 										  Player player,
-										  Siege siege) {
+										  Siege siege,
+										  PointsReason reason) {
 
 		//Give battle points to opposing side
 		int battlePoints; 
@@ -63,24 +65,61 @@ public class SiegeWarScoringUtil {
 		SiegeController.saveSiege(siege);
 
 		//Generate message
+		sendPointsMessage(reason,residentIsAttacker,player,siege,battlePoints);
+	}
+
+	private static void sendPointsMessage(PointsReason reason, boolean residentIsAttacker, Player player, Siege siege, int battlePoints) {
 		String langKey;
-		Translatable message;
-		Player killer = getPlayerKiller(player);
-		if(killer != null) {
-			langKey = residentIsAttacker ? 	"msg_siege_war_attacker_killed_by_player" : "msg_siege_war_defender_killed_by_player";
-			message = Translatable.of(
-				langKey,
-				siege.getTown().getName(),
-				player.getName(),
-				killer.getName(),
-				Math.abs(battlePoints));
-		} else {
-			langKey = residentIsAttacker ? 	"msg_siege_war_attacker_death" : "msg_siege_war_defender_death";
-			message = Translatable.of(
-				langKey,
-				siege.getTown().getName(),
-				player.getName(),
-				Math.abs(battlePoints));
+		Translatable message = null;
+
+		switch (reason) {
+			case DEATH:
+				Player killer = getPlayerKiller(player);
+				if (killer != null) {
+					langKey = residentIsAttacker ? "msg_siege_war_attacker_killed_by_player" : "msg_siege_war_defender_killed_by_player";
+					message = Translatable.of(
+							langKey,
+							siege.getTown().getName(),
+							player.getName(),
+							killer.getName(),
+							Math.abs(battlePoints));
+				} else {
+					langKey = residentIsAttacker ? "msg_siege_war_attacker_death" : "msg_siege_war_defender_death";
+					message = Translatable.of(
+							langKey,
+							siege.getTown().getName(),
+							player.getName(),
+							Math.abs(battlePoints));
+				}
+				break;
+			case SOLDIER_REMOVAL:
+				langKey = residentIsAttacker ?  "msg_siege_war_attacker_rank_removal" : "msg_siege_war_defender_rank_removal";
+				message = Translatable.of(
+						langKey,
+						siege.getTown().getName(),
+						player.getName(),
+						Math.abs(battlePoints)
+				);
+				break;
+			case LEAVE_TOWN:
+				langKey = residentIsAttacker ? "msg_siege_war_attacker_resident_removal" : "msg_siege_war_defender_resident_removal";
+				message = Translatable.of(
+						langKey,
+						siege.getTown().getName(),
+						player.getName(),
+						Math.abs(battlePoints)
+				);
+				break;
+			case TOWN_LEAVE_NATION:
+				langKey = residentIsAttacker ? "msg_siege_war_attacker_town_removal" : "msg_siege_war_defender_town_removal";
+				message = Translatable.of(
+						langKey,
+
+						siege.getTown().getName(),
+						player.getName(),
+						Math.abs(battlePoints)
+				);
+				break;
 		}
 
 		//Send messages to siege participants

@@ -1308,7 +1308,14 @@ public enum ConfigNodes {
 			"",
 			"# The offers granted by the awards.",
 			"# This list is in the form of: {top_nation}, {next nation},......{bottom_nation}",
-			"# Within each nation, the form is: {num_tier_1_offers, num_tier_2_offers .....}. etc.");
+			"# Within each nation, the form is: {num_tier_1_offers, num_tier_2_offers .....}. etc."),
+
+	LOSE_POINTS_ON_REMOVAL(
+			"ceedric_com.lose-points-on-removal",
+			"true",
+			"# If set to true a nation will lose points when their soldier rank",
+						"# is removed while they are in an active siege zone"
+	);
 
 	private final String Root;
 	private final String Default;

@@ -891,4 +891,9 @@ public class SiegeWarSettings {
 	public static int getDominationAwardsArtefactExpiryExplosionsMaxPower() {
 		return Settings.getInt(ConfigNodes.DOMINATION_AWARDS_ARTEFACT_EXPIRY_EXPLOSIONS_MAX_POWER);
 	}
+
+	/* ceedric.com Changes */
+	public static boolean removePointsOnSoldierRemoval() {
+		return Settings.getBoolean(ConfigNodes.LOSE_POINTS_ON_REMOVAL);
+	}
 }

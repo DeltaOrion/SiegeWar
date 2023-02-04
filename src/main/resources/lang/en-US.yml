@@ -410,6 +410,14 @@ msg_siege_war_attacker_killed_by_player: '&bSiege of %s > Attacker %s was killed
 msg_siege_war_defender_killed_by_player: '&bSiege of %s > Defender %s was killed by %s > Battle Points +%d'
 status_town_days_to_peacefulness_status_change: 'Days To Neutrality Status Change'
 
+#Added in 0.51
+msg_siege_war_attacker_rank_removal: '&bSiege of %s > Attacker %s soldier rank was removed while they were in siege zone > Battle Points -%d'
+msg_siege_war_defender_rank_removal: '&bSiege of %s > Defender %s soldier rank was removed while they were in siege zone > Battle Points +%d'
+msg_siege_war_attacker_resident_removal: '&bSiege of %s > Attacker %s was removed from their town while they were in siege zone > Battle Points -%d'
+msg_siege_war_defender_resident_removal: '&bSiege of %s > Defender %s was removed from their town while they were in siege zone > Battle Points +%d'
+msg_siege_war_attacker_town_removal: '&bSiege of %s > Attacker %s town was removed from their nation while they were in siege zone > Battle Points -%d'
+msg_siege_war_defender_town_removal: '&bSiege of %s > Defender %s town was removed from their nation while they were in siege zone > Battle Points +%d'
+
 # Added in 0.27
 msg_next_siege_session_in_minutes: 'The next Battle Session is in %s.'
 msg_session_is_active_now: 'A Battle Session is active now!'

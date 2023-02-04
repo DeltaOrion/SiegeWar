@@ -5,6 +5,7 @@ import java.util.List;
 import com.gmail.goosius.siegewar.events.ArtefactConsumeItemEvent;
 import com.gmail.goosius.siegewar.events.ArtefactDamageEntityEvent;
 import com.gmail.goosius.siegewar.events.ArtefactThrownPotionEvent;
+import com.gmail.goosius.siegewar.playeractions.PointsReason;
 import com.gmail.goosius.siegewar.utils.SiegeWarDominationAwardsUtil;
 import com.gmail.goosius.siegewar.utils.SiegeWarNotificationUtil;
 import org.bukkit.Bukkit;
@@ -35,7 +36,6 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.permissions.PermissionAttachment;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.potion.PotionEffectType;
 
@@ -43,7 +43,7 @@ import com.gmail.goosius.siegewar.Messaging;
 import com.gmail.goosius.siegewar.SiegeController;
 import com.gmail.goosius.siegewar.SiegeWar;
 import com.gmail.goosius.siegewar.objects.Siege;
-import com.gmail.goosius.siegewar.playeractions.PlayerDeath;
+import com.gmail.goosius.siegewar.playeractions.SiegePoints;
 import com.gmail.goosius.siegewar.settings.SiegeWarSettings;
 import com.gmail.goosius.siegewar.utils.SiegeWarBlockUtil;
 import com.gmail.goosius.siegewar.utils.SiegeWarDistanceUtil;
@@ -163,7 +163,7 @@ public class SiegeWarBukkitEventListener implements Listener {
 	public void onPlayerDeath(PlayerDeathEvent event) {
 		//Check for siege-war related death effects
 		if(isSWEnabledAndIsThisAWarAllowedWorld(event.getEntity().getWorld())) {
-			PlayerDeath.evaluateSiegePlayerDeath(event.getEntity(), event);
+			SiegePoints.evaluateDeath(event.getEntity());
 		}
 	}
 	
